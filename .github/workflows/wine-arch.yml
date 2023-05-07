@@ -28,5 +28,5 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: wine-tkg-build
-          path: /
+          path: wine-tkg-git/wine-tkg-git/wine-tkg-git/prepare.log
                 
