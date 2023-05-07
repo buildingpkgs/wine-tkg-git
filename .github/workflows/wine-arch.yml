@@ -24,6 +24,7 @@ jobs:
           su user -c "yes|PKGDEST=/tmp/wine-tkg makepkg --noconfirm -s"
 
       - name: Archive the artifacts
+        if: ${{ job.status != 'success' }}
         uses: actions/upload-artifact@v2
         with:
           name: wine-tkg-build
