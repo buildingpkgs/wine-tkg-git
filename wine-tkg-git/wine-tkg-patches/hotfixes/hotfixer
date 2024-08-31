@@ -1,9 +1,6 @@
 #!/bin/bash
 
 if [ "$_hotfixes_no_confirm" != "ignore" ]; then
- _hotfix_import
- hotfixer
-fi
 
 _hotfix_import() {
   if [ -z "$_hotfix_boundary" ] || ( cd "${srcdir}"/"${_winesrcdir}" && ! git merge-base --is-ancestor "$_hotfix_boundary" HEAD ); then
@@ -13,6 +10,7 @@ _hotfix_import() {
       msg2 "Hotfixer: $_hotfix loaded"
     fi
   fi
+
 }
 
 if [ "$_unfrog" != "true" ]; then
@@ -109,3 +107,4 @@ hotfixer() {
     fi
   done
 }
+fi
