@@ -73,7 +73,6 @@ else
 fi
 
 hotfixer() {
-if [ "$_hotfixes_no_confirm" != "ignore" ]; then
   for _f in "${_hotfixes[@]}"; do
     if [ -e "${_f}.${_userpatch_ext}revert" ]; then
       msg2 "## Applying reverting hotfix for ${_userpatch_target}: ${_f##*/}.${_userpatch_ext}revert"
@@ -104,5 +103,4 @@ if [ "$_hotfixes_no_confirm" != "ignore" ]; then
       echo "Applied hotfix ${_f##*/}.${_userpatch_ext}patch" >> "$_where"/last_build_config.log
     fi
   done
-fi
 }
