@@ -3,7 +3,7 @@
 if [ "$_hotfixes_no_confirm" != "ignore" ]; then
  _hotfix_import
  hotfixer
-else
+fi
 
 _hotfix_import() {
   if [ -z "$_hotfix_boundary" ] || ( cd "${srcdir}"/"${_winesrcdir}" && ! git merge-base --is-ancestor "$_hotfix_boundary" HEAD ); then
