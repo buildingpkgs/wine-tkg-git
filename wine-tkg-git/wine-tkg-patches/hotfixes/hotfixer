@@ -1,8 +1,7 @@
 #!/bin/bash
 
-if [ "$_hotfixes_no_confirm" != "ignore" ]; then
-
 _hotfix_import() {
+if [ "$_hotfixes_no_confirm" != "ignore" ]; then
   if [ -z "$_hotfix_boundary" ] || ( cd "${srcdir}"/"${_winesrcdir}" && ! git merge-base --is-ancestor "$_hotfix_boundary" HEAD ); then
     if ! source "$_where"/wine-tkg-patches/hotfixes/"$_hotfix"/hotfixes; then
       warning "Hotfixer: !!! $_hotfix missing !!!"
@@ -74,8 +73,9 @@ else
   _hotfix="GE" _hotfix_boundary="" _hotfix_import
   _hotfix="NosTale" _hotfix_boundary="" _hotfix_import
 fi
-
+fi
 hotfixer() {
+if [ "$_hotfixes_no_confirm" != "ignore" ]; then
   for _f in "${_hotfixes[@]}"; do
     if [ -e "${_f}.${_userpatch_ext}revert" ]; then
       msg2 "## Applying reverting hotfix for ${_userpatch_target}: ${_f##*/}.${_userpatch_ext}revert"
@@ -106,5 +106,5 @@ hotfixer() {
       echo "Applied hotfix ${_f##*/}.${_userpatch_ext}patch" >> "$_where"/last_build_config.log
     fi
   done
-}
 fi
+}
