@@ -72,6 +72,7 @@ else
   _hotfix="NosTale" _hotfix_boundary="" _hotfix_import
 fi
 fi
+}
 hotfixer() {
 if [ "$_hotfixes_no_confirm" != "ignore" ]; then
   for _f in "${_hotfixes[@]}"; do
