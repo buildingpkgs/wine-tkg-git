@@ -1,8 +1,6 @@
-name: Wine Arch Linux CI
+name: Wine Arch OW2-test Linux CI
 
 on:
-  schedule:
-    - cron:  '45 8,20 * * *'
   workflow_dispatch:
 
 jobs:
@@ -18,7 +16,7 @@ jobs:
           pacman -Syu --noconfirm base-devel sudo
           useradd user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
           chown user -R . && cd wine-tkg-git
-          sed -i 's/wayland_driver="false"/wayland_driver="true"/' customization.cfg
+          echo '_OW2_fix="true"' >> customization.cfg
           su user -c "yes|PKGDEST=/tmp/wine-tkg makepkg --noconfirm -s"
 
       - name: Archive the artifacts
