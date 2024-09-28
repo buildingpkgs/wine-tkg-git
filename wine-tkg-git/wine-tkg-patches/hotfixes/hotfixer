@@ -8,6 +8,7 @@ _hotfix_import() {
       msg2 "Hotfixer: $_hotfix loaded"
     fi
   fi
+}
 
 if [ "$_unfrog" != "true" ]; then
   if ( cd "${srcdir}"/"${_winesrcdir}" && ! git merge-base --is-ancestor 0c249e6125fc9dc6ee86b4ef6ae0d9fa2fc6291b HEAD ); then
@@ -19,6 +20,7 @@ if [ "$_unfrog" != "true" ]; then
       fi
     fi
   fi
+
   # Plain reverts/non-patch hotfixes
   _hotfix="01-non-patch-hotfixes" _hotfix_import
 
@@ -71,7 +73,7 @@ else
   _hotfix="GE" _hotfix_boundary="" _hotfix_import
   _hotfix="NosTale" _hotfix_boundary="" _hotfix_import
 fi
-}
+
 hotfixer() {
   for _f in "${_hotfixes[@]}"; do
     if [ -e "${_f}.${_userpatch_ext}revert" ]; then
