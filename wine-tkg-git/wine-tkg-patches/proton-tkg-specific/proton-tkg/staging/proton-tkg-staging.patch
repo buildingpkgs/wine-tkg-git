@@ -1232,9 +1232,9 @@ index 43268221936..f39d6f0cd7b 100644
  }
  
 @@ -3955,7 +3955,7 @@ static enum fill_status fill_sounddevice( struct table *table, const struct expr
- 
      rec = (struct record_sounddevice *)table->data;
-     rec->deviceid = get_sounddevice_pnpdeviceid( &desc );
+     rec->caption = L"Wine Audio Device";
+     rec->deviceid = L"HDAUDIO\\FUNC_01&VEN_0000&DEV_0000&SUBSYS_00000000&REV_0000\\0&DEADBEEF&0&DEAD";
 -    rec->manufacturer = L"The Wine Project";
 +    rec->manufacturer = L"The Proton Project";
      rec->name = L"Wine Audio Device";
@@ -2735,81 +2735,6 @@ index 82e5fbf811d..b1153ac4927 100644
          UINT sync_interval, UINT flags, const DXGI_PRESENT_PARAMETERS *present_parameters)
  {
      struct d3d11_swapchain *swapchain = d3d11_swapchain_from_IDXGISwapChain4(iface);
-From 0262122fc328410e6b0b410837c35881b3aa85af Mon Sep 17 00:00:00 2001
-From: Paul Gofman <pgofman@codeweavers.com>
-Date: Mon, 19 Apr 2021 15:29:39 +0300
-Subject: [PATCH] winevulkan: Don't hardcode performance frequency.
-
-For Forza Horizon 4.
----
- dlls/winevulkan/loader.c    | 33 +++++++++++++++++++++++++++++++++
- dlls/winevulkan/make_vulkan |  2 +-
- 2 files changed, 34 insertions(+), 1 deletion(-)
-
-diff --git a/dlls/winevulkan/loader.c b/dlls/winevulkan/loader.c
-index d3ac9f57763..fcb79983114 100644
---- a/dlls/winevulkan/loader.c
-+++ b/dlls/winevulkan/loader.c
-@@ -442,6 +442,39 @@ void WINAPI vkGetPhysicalDeviceProperties2KHR(VkPhysicalDevice phys_dev,
-     fill_luid_property(properties2);
- }
- 
-+VkResult WINAPI vkGetCalibratedTimestampsEXT(VkDevice device, uint32_t timestampCount, const VkCalibratedTimestampInfoEXT *pTimestampInfos, uint64_t *pTimestamps, uint64_t *pMaxDeviation)
-+{
-+    struct vkGetCalibratedTimestampsEXT_params params;
-+    static LARGE_INTEGER freq;
-+    VkResult res;
-+    uint32_t i;
-+
-+    if (!freq.QuadPart)
-+    {
-+        LARGE_INTEGER temp;
-+
-+        QueryPerformanceFrequency(&temp);
-+        InterlockedCompareExchange64(&freq.QuadPart, temp.QuadPart, 0);
-+    }
-+
-+    params.device = device;
-+    params.timestampCount = timestampCount;
-+    params.pTimestampInfos = pTimestampInfos;
-+    params.pTimestamps = pTimestamps;
-+    params.pMaxDeviation = pMaxDeviation;
-+    res = UNIX_CALL(vkGetCalibratedTimestampsEXT, &params);
-+    if (res != VK_SUCCESS)
-+        return res;
-+
-+    for (i = 0; i < timestampCount; i++)
-+    {
-+        if (pTimestampInfos[i].timeDomain != VK_TIME_DOMAIN_QUERY_PERFORMANCE_COUNTER_EXT) continue;
-+        pTimestamps[i] *= freq.QuadPart / 10000000;
-+    }
-+
-+    return VK_SUCCESS;
-+}
-+
- VkResult WINAPI vkCreateDevice(VkPhysicalDevice phys_dev, const VkDeviceCreateInfo *create_info,
-                                const VkAllocationCallbacks *allocator, VkDevice *ret)
- {
-diff --git a/dlls/winevulkan/make_vulkan b/dlls/winevulkan/make_vulkan
-index 516c817715f..a0287c1ff09 100755
---- a/dlls/winevulkan/make_vulkan
-+++ b/dlls/winevulkan/make_vulkan
-@@ -245,7 +245,6 @@ MANUAL_UNIX_THUNKS = {
-     "vkEnumeratePhysicalDevices",
-     "vkFreeCommandBuffers",
-     "vkFreeMemory",
--    "vkGetCalibratedTimestampsEXT",
-     "vkGetCalibratedTimestampsKHR",
-     "vkGetDeviceProcAddr",
-     "vkGetDeviceQueue",
-@@ -285,6 +285,7 @@ MANUAL_LOADER_THUNKS = {
-     "vkEnumerateInstanceExtensionProperties",
-     "vkEnumerateInstanceVersion",
-     "vkFreeCommandBuffers",
-+    "vkGetCalibratedTimestampsEXT",
-     "vkGetPhysicalDeviceProperties2",
-     "vkGetPhysicalDeviceProperties2KHR",
- }
 From 003223a6816f3121a8e60d8ef3ec79e1768878ce Mon Sep 17 00:00:00 2001
 From: Andrew Eikum <aeikum@codeweavers.com>
 Date: Fri, 7 May 2021 13:44:00 -0500
@@ -3450,13 +3375,12 @@ index 9f00e45..67d071a 100644
  
  static void hacks_init(void)
  {
-@@ -1367,6 +1368,10 @@ static void hacks_init(void)
+@@ -1367,6 +1368,9 @@ static void hacks_init(void)
      if (fsync_simulate_sched_quantum)
          ERR("HACK: Simulating sched quantum in fsync.\n");
  
 +    env_str = getenv("WINE_SIMULATE_WRITECOPY");
 +    if (env_str) simulate_writecopy = atoi(env_str);
-+    else if (main_argc > 1 && strstr(main_argv[1], "UplayWebCore.exe")) simulate_writecopy = TRUE;
 +
      env_str = getenv("SteamGameId");
      if (env_str && !strcmp(env_str, "50130"))
@@ -3477,16 +3401,37 @@ diff --git a/dlls/ntdll/unix/virtual.c b/dlls/ntdll/unix/virtual.c
 index 59c0e6d..9a7af20 100644
 --- a/dlls/ntdll/unix/virtual.c
 +++ b/dlls/ntdll/unix/virtual.c
-@@ -1107,7 +1107,8 @@ static const char *get_prot_str( BYTE prot )
+@@ -122,6 +122,7 @@ struct file_view
+ #define VPROT_GUARD      0x10
+ #define VPROT_COMMITTED  0x20
+ #define VPROT_WRITEWATCH 0x40
++#define VPROT_COPIED     0x80
+ /* per-mapping protection flags */
+ #define VPROT_ARM64EC          0x0100  /* view may contain ARM64EC code */
+ #define VPROT_SYSTEM           0x0200  /* system view (underlying mmap not under our control) */
+@@ -1102,7 +1103,8 @@ static const char *get_prot_str( BYTE prot )
      buffer[0] = (prot & VPROT_COMMITTED) ? 'c' : '-';
      buffer[1] = (prot & VPROT_GUARD) ? 'g' : ((prot & VPROT_WRITEWATCH) ? 'H' : '-');
      buffer[2] = (prot & VPROT_READ) ? 'r' : '-';
 -    buffer[3] = (prot & VPROT_WRITECOPY) ? 'W' : ((prot & VPROT_WRITE) ? 'w' : '-');
-+    buffer[3] = (prot & VPROT_WRITECOPY) ? (prot & VPROT_WRITTEN ? 'w' : 'W')
++    buffer[3] = (prot & VPROT_WRITECOPY) ? (prot & VPROT_COPIED ? 'w' : 'W')
 +        : ((prot & VPROT_WRITE) ? 'w' : '-');
      buffer[4] = (prot & VPROT_EXEC) ? 'x' : '-';
      buffer[5] = 0;
      return buffer;
+@@ -1517,7 +1519,11 @@ static NTSTATUS create_view( struct file_view **view_ret, void *base, size_t siz
+  */
+ static DWORD get_win32_prot( BYTE vprot, unsigned int map_prot )
+ {
+-    DWORD ret = VIRTUAL_Win32Flags[vprot & 0x0f];
++    DWORD ret;
++
++    if ((vprot & (VPROT_COPIED | VPROT_WRITECOPY)) == (VPROT_COPIED | VPROT_WRITECOPY))
++        vprot = (vprot & ~VPROT_WRITECOPY) | VPROT_WRITE;
++    ret = VIRTUAL_Win32Flags[vprot & 0x0f];
+     if (vprot & VPROT_GUARD) ret |= PAGE_GUARD;
+     if (map_prot & SEC_NOCACHE) ret |= PAGE_NOCACHE;
+     return ret;
 @@ -4730,6 +4731,33 @@ NTSTATUS WINAPI NtProtectVirtualMemory( HANDLE process, PVOID *addr_ptr, SIZE_T
          {
              old = get_win32_prot( vprot, view->protect );
@@ -3495,10 +3440,10 @@ index 59c0e6d..9a7af20 100644
 +            if (simulate_writecopy && status == STATUS_SUCCESS
 +                && ((old == PAGE_WRITECOPY || old == PAGE_EXECUTE_WRITECOPY)))
 +            {
-+                TRACE("Setting VPROT_WRITTEN.\n");
++                TRACE("Setting VPROT_COPIED.\n");
 +
-+                set_page_vprot_bits(base, size, VPROT_WRITTEN, 0);
-+                vprot |= VPROT_WRITTEN;
++                set_page_vprot_bits(base, size, VPROT_COPIED, 0);
++                vprot |= VPROT_COPIED;
 +                old = get_win32_prot( vprot, view->protect );
 +            }
 +            else if (status == STATUS_SUCCESS && (view->protect & SEC_IMAGE) &&
@@ -3515,7 +3460,7 @@ index 59c0e6d..9a7af20 100644
 +                if(!wcsicmp(p, gta5W))
 +                {
 +                    FIXME("HACK: changing GTA5.exe vprot\n");
-+                    set_page_vprot_bits(base, page_size, VPROT_WRITTEN, 0);
++                    set_page_vprot_bits(base, page_size, VPROT_COPIED, 0);
 +                }
 +            }
          }

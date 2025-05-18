@@ -50,7 +50,6 @@ _exit_cleanup() {
     echo "_proton_winetricks=${_proton_winetricks}" >> "$_proton_tkg_path"/proton_tkg_token
     echo "_proton_use_steamhelper=${_proton_use_steamhelper}" >> "$_proton_tkg_path"/proton_tkg_token
     echo "_proton_mf_hacks=${_proton_mf_hacks}" >> "$_proton_tkg_path"/proton_tkg_token
-    echo "_dxvk_dxgi=${_dxvk_dxgi}" >> "$_proton_tkg_path"/proton_tkg_token
     echo "_use_dxvk=${_use_dxvk}" >> "$_proton_tkg_path"/proton_tkg_token
     echo "_dxvk_version=${_dxvk_version}" >> "$_proton_tkg_path"/proton_tkg_token
     echo "_use_vkd3dlib='${_use_vkd3dlib}'" >> "$_proton_tkg_path"/proton_tkg_token
@@ -265,13 +264,23 @@ _init() {
     if [ -z "$_LOCAL_PRESET" ]; then
       msg2 "No _LOCAL_PRESET set in .cfg. Please select your desired base:"
       warning "With Valve trees, most wine-specific customization options will be ignored such as game-specific patches, esync/fsync/fastsync or Proton-specific features support. Those patches and features are for the most part already in, but some bits deemed useful such as FSR support for Proton's fshack are made available through community patches. Staging and GE patches are available through regular .cfg options."
-      read -p "    What kind of Proton base do you want?`echo $'\n    > 1.Valve Proton Experimental Bleeding Edge (Recommended for gaming on the edge)\n      2.Valve Proton Experimental\n      3.Valve Proton\n      4.Wine upstream Proton (Expect breakage)\n    choice[1-4?]: '`" CONDITION;
+      read -p "    What kind of Proton base do you want?`echo $'\n    > 1.Valve Proton Experimental Bleeding Edge (Recommended for gaming on the edge)\n      2.Valve Proton Experimental\n      3.Valve Proton\n      4.Wine upstream Proton (Expect breakage)\n      5.Other and legacy presets\n    choice[1-5?]: '`" CONDITION;
       if [ "$CONDITION" = "2" ]; then
         _LOCAL_PRESET="valve-exp"
       elif [ "$CONDITION" = "3" ]; then
         _LOCAL_PRESET="valve"
       elif [ "$CONDITION" = "4" ]; then
         _LOCAL_PRESET=""
+      elif [ "$CONDITION" = "5" ]; then
+        i=0
+        for _profiles in "$_where/wine-tkg-profiles"/legacy/wine-tkg-*.cfg; do
+          _GOTCHA=( "${_profiles//*\/wine-tkg-/}" )
+          msg2 "  $i - ${_GOTCHA//.cfg/}" && ((i+=1))
+        done
+        read -rp "  choice [0-$(($i-1))]: " _SELECT_PRESET;
+        _profiles=( `ls "$_where/wine-tkg-profiles"/legacy/wine-tkg-*.cfg` )
+        _strip_profiles=( "${_profiles[@]//*\/wine-tkg-/}" )
+        _LOCAL_PRESET="${_strip_profiles[$_SELECT_PRESET]//.cfg/}"
       else
         _LOCAL_PRESET="valve-exp-bleeding"
       fi
@@ -298,7 +307,6 @@ _init() {
     _use_mono="true"
     if [ "$_use_dxvk" = "true" ] || [ "$_use_dxvk" = "release" ]; then
       _use_dxvk="release"
-      _dxvk_dxgi="true"
     fi
     #if [ "$_ispkgbuild" = "true" ]; then
     #  _steamvr_support="false"
@@ -1044,7 +1052,6 @@ _prepare() {
                    "$_where/wine-tkg-patches/proton/proton-bcrypt/proton-bcrypt"
                    "$_where/wine-tkg-patches/misc/josh-flat-theme/josh-flat-theme"
                    "$_where/wine-tkg-patches/proton/proton-win10-default/proton-win10-default"
-                   "$_where/wine-tkg-patches/proton/dxvk_config/dxvk_config"
                    "$_where/wine-tkg-patches/proton-tkg-specific/proton_battleye/proton_battleye"
                    "$_where/wine-tkg-patches/proton-tkg-specific/proton_eac/proton_eac" ) && _patchpathloader
 
@@ -1164,11 +1171,6 @@ _polish() {
 	  fi
 	  if [ "$_use_legacy_gallium_nine" = "true" ]; then
 	    _version_tags+=(Nine)
-	  fi
-	  if [ "$_use_vkd3dlib" != "true" ]; then
-	    if [ "$_dxvk_dxgi" != "true" ] && git merge-base --is-ancestor 74dc0c5df9c3094352caedda8ebe14ed2dfd615e HEAD; then
-	      _version_tags+=(Vkd3d DXVK-Compatible)
-	    fi
 	  fi
 	  if [ "$_versioning_string" = "wine_srcdir" ]; then
 	    sed -i "s/\\\\\"\\\\\\\1.*\"/\\\\\"\\\\\\\1  ( ${_version_tags[*]} )\\\\\"/g" "${_versioning_path}"
